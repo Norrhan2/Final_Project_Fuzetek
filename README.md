@@ -31,7 +31,7 @@ creation, ticket sales, payments, and attendance tracking in one application.
 ## Tech Stack
 - C++17
 - Qt (GUI)
-- PostgreSQL (via libpqxx)
+- PostgreSQL 
 - Git / GitHub, Jira
 
 ## Architecture & Design Patterns
@@ -45,13 +45,13 @@ creation, ticket sales, payments, and attendance tracking in one application.
   `Customer`, each overriding role-specific permissions.
 
 ## Database Schema (tables & relationships)
-Users (id, name, email, password, role)
-Events (id, organizer_id FK, venue_id FK, title, date, capacity)
-Venues (id, name, address, capacity)
-Tickets (id, event_id FK, type, price, state)
-Bookings (id, customer_id FK, event_id FK, ticket_id FK, status)
-Payments (id, booking_id FK, method, amount, status)
-Attendees (id, booking_id FK, checked_in_at)
+- Users (id, name, email, password, role)
+- Events (id, organizer_id FK, venue_id FK, title, date, capacity)
+- Venues (id, name, address, capacity)
+- Tickets (id, event_id FK, type, price, state)
+- Bookings (id, customer_id FK, event_id FK, ticket_id FK, status)
+- Payments (id, booking_id FK, method, amount, status)
+- Attendees (id, booking_id FK, checked_in_at)
 
 Relationships:
 - Organizer 1───N Events
