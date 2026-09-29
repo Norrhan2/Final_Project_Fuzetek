@@ -62,22 +62,27 @@ Relationships:
 - Booking 1───1 Attendee (on check-in)
 
 ## Project Structure
+
+```text
 EventTicketManager/
 ├── src/
-│   ├── main.cpp                          ← the ONLY file CMake compiles
+│   ├── main.cpp                  # The ONLY file CMake compiles
 │   │
 │   ├── core/
-│   │   ├── User.cpp                      → User, Admin, Organizer, Customer
+│   │   ├── User.cpp              # User, Admin, Organizer, Customer
 │   │   ├── Event.cpp
 │   │   ├── Venue.cpp
-│   │   ├── Ticket.cpp                    → Ticket, RegularTicket, VIPTicket, StudentTicket, TicketFactory
-│   │   ├── TicketState.cpp               → TicketState, AvailableState, ReservedState, SoldState, CancelledState
+│   │   ├── Ticket.cpp            # Ticket, RegularTicket, VIPTicket,
+│   │   │                          # StudentTicket, TicketFactory
+│   │   ├── TicketState.cpp        # TicketState, AvailableState,
+│   │   │                          # ReservedState, SoldState, CancelledState
 │   │   ├── Booking.cpp
-│   │   ├── Payment.cpp                   → Payment, PaymentStrategy, CashPayment, CardPayment, WalletPayment
+│   │   ├── Payment.cpp            # Payment, PaymentStrategy,
+│   │   │                          # CashPayment, CardPayment, WalletPayment
 │   │   └── Attendee.cpp
 │   │
 │   ├── database/
-│   │   ├── DatabaseManager.cpp           → connection singleton, wraps libpqxx
+│   │   ├── DatabaseManager.cpp    # Connection singleton, wraps libpqxx
 │   │   ├── UserRepository.cpp
 │   │   ├── EventRepository.cpp
 │   │   ├── VenueRepository.cpp
@@ -87,7 +92,7 @@ EventTicketManager/
 │   │   └── AttendeeRepository.cpp
 │   │
 │   └── gui/
-│       ├── MainWindow.cpp                → shell + navigation
+│       ├── MainWindow.cpp         # Shell + navigation
 │       ├── LoginWindow.cpp
 │       ├── EventFormWindow.cpp
 │       ├── VenueFormWindow.cpp
@@ -101,14 +106,18 @@ EventTicketManager/
 ├── database/
 │   ├── schema.sql
 │   └── seed_data.sql
+│
 ├── docs/
 │   ├── structure.md
 │   ├── class_diagram.png
 │   └── er_diagram.png
+│
 ├── tests/
+│
 ├── .gitignore
 ├── README.md
 └── CMakeLists.txt
+```
 
 ## Team & Module Ownership
 | Member | Module | Owns |
