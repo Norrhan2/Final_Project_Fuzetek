@@ -62,18 +62,64 @@ Relationships:
 - Booking 1───1 Attendee (on check-in)
 
 ## Project Structure
-See `docs/structure.md` for full folder layout and file-by-file ownership.
+EventTicketManager/
+├── src/
+│   ├── main.cpp                          ← the ONLY file CMake compiles
+│   │
+│   ├── core/
+│   │   ├── User.cpp                      → User, Admin, Organizer, Customer
+│   │   ├── Event.cpp
+│   │   ├── Venue.cpp
+│   │   ├── Ticket.cpp                    → Ticket, RegularTicket, VIPTicket, StudentTicket, TicketFactory
+│   │   ├── TicketState.cpp               → TicketState, AvailableState, ReservedState, SoldState, CancelledState
+│   │   ├── Booking.cpp
+│   │   ├── Payment.cpp                   → Payment, PaymentStrategy, CashPayment, CardPayment, WalletPayment
+│   │   └── Attendee.cpp
+│   │
+│   ├── database/
+│   │   ├── DatabaseManager.cpp           → connection singleton, wraps libpqxx
+│   │   ├── UserRepository.cpp
+│   │   ├── EventRepository.cpp
+│   │   ├── VenueRepository.cpp
+│   │   ├── TicketRepository.cpp
+│   │   ├── BookingRepository.cpp
+│   │   ├── PaymentRepository.cpp
+│   │   └── AttendeeRepository.cpp
+│   │
+│   └── gui/
+│       ├── MainWindow.cpp                → shell + navigation
+│       ├── LoginWindow.cpp
+│       ├── EventFormWindow.cpp
+│       ├── VenueFormWindow.cpp
+│       ├── EventSearchWindow.cpp
+│       ├── TicketTypeWindow.cpp
+│       ├── BookingWindow.cpp
+│       ├── PaymentWindow.cpp
+│       ├── CheckInWindow.cpp
+│       └── AdminDashboard.cpp
+│
+├── database/
+│   ├── schema.sql
+│   └── seed_data.sql
+├── docs/
+│   ├── structure.md
+│   ├── class_diagram.png
+│   └── er_diagram.png
+├── tests/
+├── .gitignore
+├── README.md
+└── CMakeLists.txt
 
 ## Team & Module Ownership
 | Member | Module | Owns |
 |---|---|---|
-| [Leader name] | Auth, Roles & Core Infra | User/Admin/Organizer/Customer classes, DatabaseManager, Login screen, Main shell |
-| [Member 2] | Event & Venue | Event/Venue classes, their DB repos, create/edit/search event screens |
-| [Member 3] | Ticket Management | Ticket hierarchy, TicketFactory, Ticket states, ticket DB repo, ticket-type screen |
-| [Member 4] | Booking & Cancellation | Booking class, booking DB repo, booking/cancel screens |
-| [Member 5] | Payment | Payment class, PaymentStrategy hierarchy, payment DB repo, payment screen |
-| [Member 6] | Check-in / Attendance | Attendee class, attendee DB repo, check-in screen |
-| [Member 7] | Admin Dashboard & Stats + QA | Sales statistics logic, admin dashboard screen, tests, Git/Jira upkeep |
+| Norhan | Auth, Roles & Core Infra | User/Admin/Organizer/Customer classes, DatabaseManager, Login screen, Main shell |
+| Donia | Event & Venue | Event/Venue classes, their DB repos, create/edit/search event screens |
+| Mahmoud | Ticket Management | Ticket hierarchy, TicketFactory, Ticket states, ticket DB repo, ticket-type screen |
+| Zeinab | Booking & Cancellation | Booking class, booking DB repo, booking/cancel screens |
+| Mostafa | Payment | Payment class, PaymentStrategy hierarchy, payment DB repo, payment screen |
+| Youssef | Check-in / Attendance | Attendee class, attendee DB repo, check-in screen |
+| Ahmed | Admin Dashboard & Stats + QA | Sales statistics logic, admin dashboard screen, tests, Git/Jira upkeep |
 
 Each member is responsible for their module's full vertical: class design →
 database table & queries → GUI screen. No one should touch only one layer.
