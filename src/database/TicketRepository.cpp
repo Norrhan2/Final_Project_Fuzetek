@@ -2,265 +2,136 @@
 
 #include "../core/Ticket.cpp"
 #include "DatabaseManager.cpp"
-
-#include <pqxx/pqxx>
-#include <vector>
-#include <optional>
 #include <iostream>
-
+#include <memory>
+#include <pqxx/pqxx>
+#include <string>
+#include <vector>
 using namespace std;
 
-
+// Every row in Tickets is ONE seat. Capacity of the event = maximum number of non-cancelled tickets.
 class TicketRepository {
-public:
-
-    TicketRepository() = default;
-
-
-    int createTicket(
-        int eventId,
-        const string& type,
-        double price
-    ) {
-        try {
-            auto conn = DatabaseManager::getInstance().getConnection();
-
-            pqxx::work txn(*conn);
-
-            pqxx::result r = txn.exec_params(
-                "INSERT INTO Tickets "
-                "(event_id, type, price, state) "
-                "VALUES ($1, $2, $3, 'Available') "
-                "RETURNING id;",
-                eventId,
-                type,
-                price
-            );
-
-            txn.commit();
-
-            return r[0][0].as<int>();
-        }
-        catch (const exception& e) {
-            cerr << "Error in TicketRepository::createTicket: "
-                 << e.what() << endl;
-
-            return -1;
-        }
+private:
+    static unique_ptr<Ticket> fromRow(const pqxx::row& row) {
+        return TicketFactory::createTicket(row["type"].as<string>(), row["id"].as<int>(),
+                                           row["event_id"].as<int>(), row["price"].as<double>(),
+                                           row["state"].as<string>());
     }
 
-
-    optional<Ticket*> getTicketById(int ticketId) {
-        try {
-            auto conn = DatabaseManager::getInstance().getConnection();
-
-            pqxx::work txn(*conn);
-
-            pqxx::result r = txn.exec_params(
-                "SELECT id, event_id, type, price, state "
-                "FROM Tickets "
-                "WHERE id = $1;",
-                ticketId
-            );
-
-            if (r.empty()) {
-                return nullopt;
-            }
-
-            int id = r[0]["id"].as<int>();
-            int eventId = r[0]["event_id"].as<int>();
-            string type = r[0]["type"].as<string>();
-            double price = r[0]["price"].as<double>();
-            string state = r[0]["state"].as<string>();
-
-            unique_ptr<Ticket> ticket =
-                TicketFactory::createTicket(
-                    type,
-                    id,
-                    eventId,
-                    price,
-                    state
-                );
-
-            if (!ticket) {
-                return nullopt;
-            }
-
-            Ticket* resultTicket = ticket.release();
-
-            return resultTicket;
-        }
-        catch (const exception& e) {
-            cerr << "Error in TicketRepository::getTicketById: "
-                 << e.what() << endl;
-
-            return nullopt;
-        }
+    static void setError(string* error, const string& message) {
+        if (error) *error = message;
     }
 
-
-    vector<unique_ptr<Ticket>> getTicketsByEvent(int eventId) {
-
+    vector<unique_ptr<Ticket>> queryByEvent(int eventId, const string& extraCondition) {
         vector<unique_ptr<Ticket>> results;
-
         try {
             auto conn = DatabaseManager::getInstance().getConnection();
-
-            pqxx::work txn(*conn);
+            pqxx::nontransaction txn(*conn);
 
             pqxx::result r = txn.exec_params(
-                "SELECT id, event_id, type, price, state "
-                "FROM Tickets "
-                "WHERE event_id = $1 "
-                "ORDER BY id;",
-                eventId
-            );
-
+                "SELECT id, event_id, type, price, state FROM Tickets WHERE event_id = $1 " + extraCondition +
+                " ORDER BY id;", eventId);
             for (const auto& row : r) {
-
-                int id =
-                    row["id"].as<int>();
-
-                int currentEventId =
-                    row["event_id"].as<int>();
-
-                string type =
-                    row["type"].as<string>();
-
-                double price =
-                    row["price"].as<double>();
-
-                string state =
-                    row["state"].as<string>();
-
-                unique_ptr<Ticket> ticket =
-                    TicketFactory::createTicket(
-                        type,
-                        id,
-                        currentEventId,
-                        price,
-                        state
-                    );
-
-                if (ticket) {
-                    results.push_back(
-                        move(ticket)
-                    );
-                }
+                auto ticket = fromRow(row);
+                if (ticket) results.push_back(std::move(ticket));
             }
         }
         catch (const exception& e) {
-
-            cerr << "Error in TicketRepository::getTicketsByEvent: "
-                 << e.what() << endl;
+            cerr << "Error in TicketRepository::queryByEvent: " << e.what() << endl;
         }
-
         return results;
     }
 
+public:
+    TicketRepository() = default;
 
-    bool updateTicketState(
-        int ticketId,
-        const string& newState
-    ) {
-        if (
-            newState != "Available" &&
-            newState != "Reserved" &&
-            newState != "Sold" &&
-            newState != "Cancelled"
-        ) {
-            return false;
-        }
+    // Creates `quantity` tickets in one transaction. Returns how many were created, or -1 (and fills *error).
+    int createTickets(int eventId, const string& type, double price, int quantity, int organizerId,
+                      string* error = nullptr) {
+        auto fail = [&](const string& message) { setError(error, message); return -1; };
+
+        if (type != "Regular" && type != "VIP" && type != "Student") return fail("Unknown ticket type.");
+        if (price < 0) return fail("The price cannot be negative.");
+        if (quantity < 1 || quantity > 1000) return fail("Quantity must be between 1 and 1000.");
 
         try {
-            auto conn =
-                DatabaseManager::getInstance().getConnection();
-
+            auto conn = DatabaseManager::getInstance().getConnection();
             pqxx::work txn(*conn);
 
-            pqxx::result r = txn.exec_params(
-                "UPDATE Tickets "
-                "SET state = $1 "
-                "WHERE id = $2 "
-                "RETURNING id;",
-                newState,
-                ticketId
-            );
+            // Lock the event row so two requests cannot both squeeze under the capacity.
+            pqxx::result ev = txn.exec_params(
+                "SELECT organizer_id, capacity FROM Events WHERE id = $1 FOR UPDATE;", eventId);
+            if (ev.empty()) return fail("Event not found.");
+            if (ev[0]["organizer_id"].as<int>() != organizerId)
+                return fail("You can only add tickets to your own events.");
 
-            if (r.empty()) {
-                return false;
+            int capacity = ev[0]["capacity"].as<int>();
+            int existing = txn.exec_params(
+                "SELECT COUNT(*) FROM Tickets WHERE event_id = $1 AND state <> 'Cancelled';", eventId)[0][0].as<int>();
+            if (existing + quantity > capacity)
+                return fail("Capacity exceeded: the event holds " + to_string(capacity) + " tickets and already has " +
+                            to_string(existing) + ".");
+
+            for (int i = 0; i < quantity; ++i) {
+                txn.exec_params(
+                    "INSERT INTO Tickets (event_id, type, price, state) VALUES ($1, $2, $3, 'Available');",
+                    eventId, type, price);
             }
-
             txn.commit();
-
-            return true;
+            return quantity;
         }
         catch (const exception& e) {
-
-            cerr << "Error in TicketRepository::updateTicketState: "
-                 << e.what() << endl;
-
-            return false;
+            cerr << "Error in TicketRepository::createTickets: " << e.what() << endl;
+            return fail("Could not create the tickets. Please check the database connection.");
         }
     }
 
-
-    bool deleteTicket(int ticketId) {
-
+    unique_ptr<Ticket> getTicketById(int ticketId) {
         try {
-            auto conn =
-                DatabaseManager::getInstance().getConnection();
-
-            pqxx::work txn(*conn);
+            auto conn = DatabaseManager::getInstance().getConnection();
+            pqxx::nontransaction txn(*conn);
 
             pqxx::result r = txn.exec_params(
-                "DELETE FROM Tickets "
-                "WHERE id = $1 "
-                "RETURNING id;",
-                ticketId
-            );
-
-            if (r.empty()) {
-                return false;
-            }
-
-            txn.commit();
-
-            return true;
+                "SELECT id, event_id, type, price, state FROM Tickets WHERE id = $1;", ticketId);
+            if (r.empty()) return nullptr;
+            return fromRow(r[0]);
         }
         catch (const exception& e) {
-
-            cerr << "Error in TicketRepository::deleteTicket: "
-                 << e.what() << endl;
-
-            return false;
+            cerr << "Error in TicketRepository::getTicketById: " << e.what() << endl;
+            return nullptr;
         }
     }
 
+    vector<unique_ptr<Ticket>> getTicketsByEvent(int eventId) { return queryByEvent(eventId, ""); }
 
-    bool ticketExists(int ticketId) {
+    vector<unique_ptr<Ticket>> getAvailableTicketsByEvent(int eventId) {
+        return queryByEvent(eventId, "AND state = 'Available'");
+    }
 
+    // Only Available tickets of the organizer's own events can be removed.
+    bool deleteTicket(int ticketId, int organizerId, string* error = nullptr) {
         try {
-            auto conn =
-                DatabaseManager::getInstance().getConnection();
-
+            auto conn = DatabaseManager::getInstance().getConnection();
             pqxx::work txn(*conn);
 
             pqxx::result r = txn.exec_params(
-                "SELECT id "
-                "FROM Tickets "
-                "WHERE id = $1;",
-                ticketId
-            );
-
-            return !r.empty();
+                "DELETE FROM Tickets WHERE id = $1 AND state = 'Available' "
+                "AND event_id IN (SELECT id FROM Events WHERE organizer_id = $2) RETURNING id;",
+                ticketId, organizerId);
+            if (r.empty()) {
+                setError(error, "Only Available tickets of your own events can be deleted.");
+                return false;
+            }
+            txn.commit();
+            return true;
+        }
+        catch (const pqxx::foreign_key_violation&) {
+            setError(error, "This ticket has booking history and cannot be deleted.");
         }
         catch (const exception& e) {
-
-            cerr << "Error in TicketRepository::ticketExists: "
-                 << e.what() << endl;
-
-            return false;
+            cerr << "Error in TicketRepository::deleteTicket: " << e.what() << endl;
+            setError(error, "Could not delete the ticket.");
         }
+        return false;
     }
 };

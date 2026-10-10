@@ -1,509 +1,169 @@
 #pragma once
 
+#include "../database/EventRepository.cpp"
 #include "../database/TicketRepository.cpp"
-
-#include <QWidget>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QLabel>
-#include <QLineEdit>
 #include <QComboBox>
 #include <QDoubleSpinBox>
-#include <QPushButton>
-#include <QTableWidget>
-#include <QTableWidgetItem>
+#include <QHBoxLayout>
+#include <QHeaderView>
+#include <QLabel>
 #include <QMessageBox>
-
+#include <QPushButton>
+#include <QSpinBox>
+#include <QTableWidget>
+#include <QVBoxLayout>
+#include <QWidget>
 #include <vector>
-#include <memory>
-
 using namespace std;
 
-
+// Organizer screen: pick one of YOUR events, create tickets (in bulk), see/delete them.
 class TicketTypeWindow : public QWidget {
 private:
-
-    QLineEdit* eventIdInput;
-
-    QComboBox* ticketTypeCombo;
-
-    QDoubleSpinBox* priceInput;
-
-    QPushButton* createButton;
-
-    QPushButton* refreshButton;
-
-    QPushButton* deleteButton;
-
-    QTableWidget* ticketTable;
-
+    int organizerId;
     TicketRepository repository;
-
-
-public:
-
-    TicketTypeWindow(QWidget* parent = nullptr)
-        : QWidget(parent) {
-
-        setWindowTitle("Ticket Type Management");
-
-        resize(800, 550);
-
-
-        QVBoxLayout* mainLayout =
-            new QVBoxLayout(this);
-
-
-        QLabel* titleLabel =
-            new QLabel("Ticket Type Management");
-
-        titleLabel->setStyleSheet(
-            "font-size: 22px; font-weight: bold;"
-        );
-
-        mainLayout->addWidget(titleLabel);
-
-
-        QHBoxLayout* eventLayout =
-            new QHBoxLayout();
-
-
-        QLabel* eventLabel =
-            new QLabel("Event ID:");
-
-        eventIdInput =
-            new QLineEdit();
-
-        eventIdInput->setPlaceholderText(
-            "Enter event ID"
-        );
-
-
-        eventLayout->addWidget(eventLabel);
-
-        eventLayout->addWidget(
-            eventIdInput
-        );
-
-
-        mainLayout->addLayout(
-            eventLayout
-        );
-
-
-        QHBoxLayout* typeLayout =
-            new QHBoxLayout();
-
-
-        QLabel* typeLabel =
-            new QLabel("Ticket Type:");
-
-        ticketTypeCombo =
-            new QComboBox();
-
-
-        ticketTypeCombo->addItem(
-            "Regular"
-        );
-
-        ticketTypeCombo->addItem(
-            "VIP"
-        );
-
-        ticketTypeCombo->addItem(
-            "Student"
-        );
-
-
-        typeLayout->addWidget(
-            typeLabel
-        );
-
-        typeLayout->addWidget(
-            ticketTypeCombo
-        );
-
-
-        mainLayout->addLayout(
-            typeLayout
-        );
-
-
-        QHBoxLayout* priceLayout =
-            new QHBoxLayout();
-
-
-        QLabel* priceLabel =
-            new QLabel("Price:");
-
-        priceInput =
-            new QDoubleSpinBox();
-
-
-        priceInput->setMinimum(
-            0.0
-        );
-
-        priceInput->setMaximum(
-            1000000.0
-        );
-
-        priceInput->setDecimals(
-            2
-        );
-
-        priceInput->setValue(
-            100.0
-        );
-
-
-        priceLayout->addWidget(
-            priceLabel
-        );
-
-        priceLayout->addWidget(
-            priceInput
-        );
-
-
-        mainLayout->addLayout(
-            priceLayout
-        );
-
-
-        QHBoxLayout* buttonLayout =
-            new QHBoxLayout();
-
-
-        createButton =
-            new QPushButton(
-                "Create Ticket"
-            );
-
-
-        refreshButton =
-            new QPushButton(
-                "Refresh Tickets"
-            );
-
-
-        deleteButton =
-            new QPushButton(
-                "Delete Ticket"
-            );
-
-
-        buttonLayout->addWidget(
-            createButton
-        );
-
-        buttonLayout->addWidget(
-            refreshButton
-        );
-
-        buttonLayout->addWidget(
-            deleteButton
-        );
-
-
-        mainLayout->addLayout(
-            buttonLayout
-        );
-
-
-        ticketTable =
-            new QTableWidget();
-
-
-        ticketTable->setColumnCount(
-            5
-        );
-
-
-        ticketTable->setHorizontalHeaderLabels({
-            "ID",
-            "Event ID",
-            "Type",
-            "Price",
-            "State"
-        });
-
-
-        ticketTable->setSelectionBehavior(
-            QAbstractItemView::SelectRows
-        );
-
-
-        ticketTable->setEditTriggers(
-            QAbstractItemView::NoEditTriggers
-        );
-
-
-        mainLayout->addWidget(
-            ticketTable
-        );
-
-
-        connect(
-            createButton,
-            &QPushButton::clicked,
-            this,
-            &TicketTypeWindow::createTicket
-        );
-
-
-        connect(
-            refreshButton,
-            &QPushButton::clicked,
-            this,
-            &TicketTypeWindow::refreshTickets
-        );
-
-
-        connect(
-            deleteButton,
-            &QPushButton::clicked,
-            this,
-            &TicketTypeWindow::deleteTicket
-        );
+    vector<Event> myEvents;
+
+    QComboBox* eventCombo = nullptr;
+    QComboBox* typeCombo = nullptr;
+    QDoubleSpinBox* priceInput = nullptr;
+    QSpinBox* quantityInput = nullptr;
+    QLabel* capacityLabel = nullptr;
+    QTableWidget* ticketTable = nullptr;
+
+    int selectedEventId() const {
+        int index = eventCombo->currentIndex();
+        return index >= 0 ? eventCombo->itemData(index).toInt() : -1;
     }
 
+    void setupUI() {
+        setWindowTitle("Ticket Type Management");
+        resize(760, 540);
 
-private slots:
+        auto* mainLayout = new QVBoxLayout(this);
+        mainLayout->addWidget(new QLabel("<h2>Ticket Type Management</h2>", this));
 
-    void createTicket() {
+        myEvents = EventRepository::getEventsByOrganizer(organizerId);
+        eventCombo = new QComboBox(this);
+        for (const auto& event : myEvents) {
+            eventCombo->addItem(QString::fromStdString(event.getTitle() + "  (" + event.getDate() + ")"), event.getId());
+        }
+        auto* eventRow = new QHBoxLayout();
+        eventRow->addWidget(new QLabel("Event:", this));
+        eventRow->addWidget(eventCombo, 1);
+        mainLayout->addLayout(eventRow);
 
-        bool ok = false;
+        typeCombo = new QComboBox(this);
+        typeCombo->addItems({ "Regular", "VIP", "Student" });
+        priceInput = new QDoubleSpinBox(this);
+        priceInput->setRange(0.0, 1000000.0);
+        priceInput->setDecimals(2);
+        priceInput->setValue(100.0);
+        quantityInput = new QSpinBox(this);
+        quantityInput->setRange(1, 1000);
+        quantityInput->setValue(10);
 
-        int eventId =
-            eventIdInput->text().toInt(&ok);
+        auto* createRow = new QHBoxLayout();
+        createRow->addWidget(new QLabel("Type:", this));
+        createRow->addWidget(typeCombo);
+        createRow->addWidget(new QLabel("Price:", this));
+        createRow->addWidget(priceInput);
+        createRow->addWidget(new QLabel("Quantity:", this));
+        createRow->addWidget(quantityInput);
+        auto* btnCreate = new QPushButton("Create Tickets", this);
+        createRow->addWidget(btnCreate);
+        mainLayout->addLayout(createRow);
 
+        capacityLabel = new QLabel(this);
+        mainLayout->addWidget(capacityLabel);
 
-        if (!ok || eventId <= 0) {
+        ticketTable = new QTableWidget(this);
+        ticketTable->setColumnCount(4);
+        ticketTable->setHorizontalHeaderLabels({ "ID", "Type", "Price", "State" });
+        ticketTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+        ticketTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+        ticketTable->setSelectionMode(QAbstractItemView::SingleSelection);
+        ticketTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+        mainLayout->addWidget(ticketTable);
 
-            QMessageBox::warning(
-                this,
-                "Invalid Event ID",
-                "Please enter a valid Event ID."
-            );
+        auto* bottomRow = new QHBoxLayout();
+        auto* btnRefresh = new QPushButton("Refresh", this);
+        auto* btnDelete = new QPushButton("Delete Selected Ticket", this);
+        bottomRow->addWidget(btnRefresh);
+        bottomRow->addStretch();
+        bottomRow->addWidget(btnDelete);
+        mainLayout->addLayout(bottomRow);
 
+        connect(eventCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) { refreshTickets(); });
+        connect(btnCreate, &QPushButton::clicked, this, [this]() { createTickets(); });
+        connect(btnRefresh, &QPushButton::clicked, this, [this]() { refreshTickets(); });
+        connect(btnDelete, &QPushButton::clicked, this, [this]() { deleteTicket(); });
+    }
+
+    void createTickets() {
+        int eventId = selectedEventId();
+        if (eventId < 0) {
+            QMessageBox::warning(this, "No event", "Create an event first (My Events).");
             return;
         }
 
-
-        string type =
-            ticketTypeCombo->currentText()
-                .toStdString();
-
-
-        double price =
-            priceInput->value();
-
-
-        int ticketId =
-            repository.createTicket(
-                eventId,
-                type,
-                price
-            );
-
-
-        if (ticketId == -1) {
-
-            QMessageBox::critical(
-                this,
-                "Error",
-                "Failed to create ticket."
-            );
-
+        string error;
+        int created = repository.createTickets(eventId, typeCombo->currentText().toStdString(),
+                                               priceInput->value(), quantityInput->value(), organizerId, &error);
+        if (created < 0) {
+            QMessageBox::critical(this, "Error", QString::fromStdString(error));
             return;
         }
-
-
-        QMessageBox::information(
-            this,
-            "Success",
-            QString(
-                "Ticket created successfully.\nTicket ID: %1"
-            ).arg(ticketId)
-        );
-
-
+        QMessageBox::information(this, "Success", QString::number(created) + " ticket(s) created.");
         refreshTickets();
     }
 
-
-    void refreshTickets() {
-
-        bool ok = false;
-
-        int eventId =
-            eventIdInput->text().toInt(&ok);
-
-
-        if (!ok || eventId <= 0) {
-
-            QMessageBox::warning(
-                this,
-                "Invalid Event ID",
-                "Please enter a valid Event ID."
-            );
-
+    void deleteTicket() {
+        int row = ticketTable->currentRow();
+        if (row < 0) {
+            QMessageBox::warning(this, "No Selection", "Please select a ticket first.");
             return;
         }
+        int ticketId = ticketTable->item(row, 0)->text().toInt();
 
+        auto answer = QMessageBox::question(this, "Confirm Delete", "Delete ticket #" + QString::number(ticketId) + "?",
+                                            QMessageBox::Yes | QMessageBox::No);
+        if (answer != QMessageBox::Yes) return;
 
-        vector<unique_ptr<Ticket>> tickets =
-            repository.getTicketsByEvent(
-                eventId
-            );
-
-
-        ticketTable->setRowCount(
-            0
-        );
-
-
-        for (
-            const auto& ticket : tickets
-        ) {
-
-            int row =
-                ticketTable->rowCount();
-
-
-            ticketTable->insertRow(
-                row
-            );
-
-
-            ticketTable->setItem(
-                row,
-                0,
-                new QTableWidgetItem(
-                    QString::number(
-                        ticket->getId()
-                    )
-                )
-            );
-
-
-            ticketTable->setItem(
-                row,
-                1,
-                new QTableWidgetItem(
-                    QString::number(
-                        ticket->getEventId()
-                    )
-                )
-            );
-
-
-            ticketTable->setItem(
-                row,
-                2,
-                new QTableWidgetItem(
-                    QString::fromStdString(
-                        ticket->getTicketType()
-                    )
-                )
-            );
-
-
-            ticketTable->setItem(
-                row,
-                3,
-                new QTableWidgetItem(
-                    QString::number(
-                        ticket->getPrice(),
-                        'f',
-                        2
-                    )
-                )
-            );
-
-
-            ticketTable->setItem(
-                row,
-                4,
-                new QTableWidgetItem(
-                    QString::fromStdString(
-                        ticket->getState()
-                    )
-                )
-            );
-        }
-
-
-        ticketTable->resizeColumnsToContents();
+        string error;
+        if (repository.deleteTicket(ticketId, organizerId, &error)) refreshTickets();
+        else QMessageBox::critical(this, "Error", QString::fromStdString(error));
     }
 
+public:
+    explicit TicketTypeWindow(int organizerId, QWidget* parent = nullptr)
+        : QWidget(parent), organizerId(organizerId) {
+        setupUI();
+        refreshTickets();
+    }
 
-    void deleteTicket() {
+    void refreshTickets() {
+        ticketTable->setRowCount(0);
 
-        QList<QTableWidgetItem*> selected =
-            ticketTable->selectedItems();
-
-
-        if (selected.isEmpty()) {
-
-            QMessageBox::warning(
-                this,
-                "No Selection",
-                "Please select a ticket first."
-            );
-
+        int eventId = selectedEventId();
+        if (eventId < 0) {
+            capacityLabel->setText("You have no events yet. Create one in \"My Events\" first.");
             return;
         }
 
-
-        int row =
-            selected.first()->row();
-
-
-        int ticketId =
-            ticketTable
-                ->item(row, 0)
-                ->text()
-                .toInt();
-
-
-        QMessageBox::StandardButton answer =
-            QMessageBox::question(
-                this,
-                "Confirm Delete",
-                "Are you sure you want to delete this ticket?"
-            );
-
-
-        if (
-            answer != QMessageBox::Yes
-        ) {
-            return;
+        auto tickets = repository.getTicketsByEvent(eventId);
+        int active = 0;
+        for (const auto& ticket : tickets) {
+            int row = ticketTable->rowCount();
+            ticketTable->insertRow(row);
+            ticketTable->setItem(row, 0, new QTableWidgetItem(QString::number(ticket->getId())));
+            ticketTable->setItem(row, 1, new QTableWidgetItem(QString::fromStdString(ticket->getTicketType())));
+            ticketTable->setItem(row, 2, new QTableWidgetItem(QString::number(ticket->getPrice(), 'f', 2)));
+            ticketTable->setItem(row, 3, new QTableWidgetItem(QString::fromStdString(ticket->getState())));
+            if (ticket->getState() != "Cancelled") ++active;
         }
 
-
-        if (
-            repository.deleteTicket(
-                ticketId
-            )
-        ) {
-
-            QMessageBox::information(
-                this,
-                "Success",
-                "Ticket deleted successfully."
-            );
-
-            refreshTickets();
-        }
-        else {
-
-            QMessageBox::critical(
-                this,
-                "Error",
-                "Failed to delete ticket."
-            );
-        }
+        int capacity = myEvents[eventCombo->currentIndex()].getCapacity();
+        capacityLabel->setText("Tickets created: " + QString::number(active) + " / " + QString::number(capacity) +
+                               " (event capacity)");
     }
 };

@@ -48,6 +48,7 @@ public:
     bool reserve();
     bool sell();
     bool cancel();
+    bool release();
 
     void setState(shared_ptr<TicketState> newState);
 
@@ -241,4 +242,8 @@ bool Ticket::sell() {
 
 bool Ticket::cancel() {
     return state && state->cancel(*this);
+}
+
+bool Ticket::release() {
+    return state && state->release(*this);
 }

@@ -1,0 +1,3 @@
+C:/Users/Norhan Yasser/Final_Project_Fuzetek/cmake-build-debug/CMakeFiles/EventTicketManager.dir
+C:/Users/Norhan Yasser/Final_Project_Fuzetek/cmake-build-debug/CMakeFiles/edit_cache.dir
+C:/Users/Norhan Yasser/Final_Project_Fuzetek/cmake-build-debug/CMakeFiles/rebuild_cache.dir

@@ -1,38 +1,21 @@
-#include <chrono>
+#pragma once
 
-namespace FinalProject {
-    
+#include <string>
+
+// One row per checked-in booking.
 class Attendee {
 private:
-    int serial;
-    int customer_id;
-    int booking_id;
-    std::chrono::system_clock::time_point timestamp;
+    int id;
+    int bookingId;
+    int customerId;
+    std::string checkedInAt;   // "YYYY-MM-DD HH:MM"
 
-    
 public:
-    
-    Attendee(int serial, int customerId, int bookingId, std::chrono::system_clock::time_point at)
-        : serial(serial), customer_id(customerId), booking_id(bookingId), timestamp(at) {
-    }
-    int getSerial() {
-        return serial;
-    }
-    
-    int getCustomer() {
-        return serial;
-    }
-    
-    int getBookingId() {
-        return booking_id;
-    }
-    
-    std::chrono::system_clock::time_point getTimeStamp() {
-        return timestamp;
-    }
+    Attendee(int id, int bookingId, int customerId, std::string checkedInAt)
+        : id(id), bookingId(bookingId), customerId(customerId), checkedInAt(std::move(checkedInAt)) {}
+
+    int getId() const { return id; }
+    int getBookingId() const { return bookingId; }
+    int getCustomerId() const { return customerId; }
+    const std::string& getCheckedInAt() const { return checkedInAt; }
 };
-    
-    
-    
-    
-}
