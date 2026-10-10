@@ -3,7 +3,12 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "C:/msys64/ucrt64/include",
+                "C:/msys64/ucrt64/include/qt6",
+                "C:/msys64/ucrt64/include/qt6/QtCore",
+                "C:/msys64/ucrt64/include/qt6/QtGui",
+                "C:/msys64/ucrt64/include/qt6/QtWidgets"
             ],
             "defines": [
                 "_DEBUG",
@@ -11,7 +16,8 @@
                 "_UNICODE"
             ],
             "cppStandard": "c++17",
-            "compilerPath": "C:/msys64/ucrt64/bin/gcc.exe"
+            "intelliSenseMode": "windows-gcc-x64",
+            "compilerPath": "C:/msys64/ucrt64/bin/g++.exe"
         }
     ],
     "version": 4
